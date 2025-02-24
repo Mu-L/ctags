@@ -37,7 +37,7 @@
 #include "parse.h"
 #include "subparser.h"
 
-#include "ruby.h"
+#include "x-ruby.h"
 
 #include <string.h>
 
@@ -76,7 +76,7 @@ static void findGemSpecTags (void)
 	scheduleRunningBaseparser (0);
 }
 
-static int lineNotify (rubySubparser *s, const unsigned char **cp)
+static int lineNotify (rubySubparser *s, const unsigned char **cp, int corkIndex CTAGS_ATTR_UNUSED)
 {
 	struct sGemSpecSubparser *gemspec = (struct sGemSpecSubparser *)s;
 	const unsigned char *p = *cp;
@@ -117,9 +117,9 @@ static int lineNotify (rubySubparser *s, const unsigned char **cp)
 		if (p)
 		{
 			rubySkipWhitespace (&p);
-			if ((!is_attr) || *p == '=')
+			if (is_attr == false || *p == '=')
 			{
-				if (is_attr)
+				if (*p == '(' || *p == '=')
 				{
 					p++;
 					rubySkipWhitespace (&p);
@@ -130,6 +130,19 @@ static int lineNotify (rubySubparser *s, const unsigned char **cp)
 					vString *gem = vStringNew ();
 					p++;
 					if (rubyParseString (&p, b, gem))
+					{
+						if (role == ROLE_DEFINITION_INDEX)
+							makeSimpleTag (gem, kind);
+						else
+							makeSimpleRefTag (gem, kind, role);
+					}
+					vStringDelete (gem);
+				}
+				else if (p [0] == '%')
+				{
+					vString *gem = vStringNew ();
+					p++;
+					if (rubyParsePercentString(&p, gem))
 					{
 						if (role == ROLE_DEFINITION_INDEX)
 							makeSimpleTag (gem, kind);

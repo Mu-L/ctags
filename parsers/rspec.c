@@ -46,7 +46,7 @@
 #include "parse.h"
 #include "subparser.h"
 
-#include "ruby.h"
+#include "x-ruby.h"
 
 #include <string.h>
 
@@ -148,7 +148,7 @@ struct caseType {
 	rspecKind    kind;
 };
 
-static int lineNotify (rubySubparser *s, const unsigned char **cp)
+static int lineNotify (rubySubparser *s, const unsigned char **cp, int corkIndex CTAGS_ATTR_UNUSED)
 {
 	struct caseType caseTypes [] = {
 		{ "describe", K_DESCRIBE },

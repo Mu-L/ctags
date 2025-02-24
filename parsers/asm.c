@@ -15,8 +15,9 @@
 
 #include <string.h>
 
-#include "cpreprocessor.h"
+#include "x-cpreprocessor.h"
 #include "debug.h"
+#include "dependency.h"
 #include "entry.h"
 #include "keyword.h"
 #include "param.h"
@@ -31,9 +32,10 @@
 *   DATA DECLARATIONS
 */
 typedef enum {
+	K_PSUEDO_FOREIGN_LD_SCRIPT_SYMBOL = -4,
+	K_PSUEDO_FOREIGN_LD_SCRIPT_SECTION = -3,
 	K_PSUEDO_MACRO_END = -2,
 	K_NONE = -1, K_DEFINE, K_LABEL, K_MACRO, K_TYPE,
-	K_SECTION,
 	K_PARAM,
 } AsmKind;
 
@@ -48,6 +50,7 @@ typedef enum {
 	OP_ENDS,
 	OP_EQU,
 	OP_EQUAL,
+	OP_GLOBAL,
 	OP_LABEL,
 	OP_MACRO,
 	OP_PROC,
@@ -58,10 +61,6 @@ typedef enum {
 	OP_STRUCT,
 	OP_LAST
 } opKeyword;
-
-typedef enum {
-	ASM_SECTION_PLACEMENT,
-} asmSectionRole;
 
 typedef struct {
 	opKeyword keyword;
@@ -83,17 +82,11 @@ static fieldDefinition AsmFields[] = {
 */
 static langType Lang_asm;
 
-static roleDefinition asmSectionRoles [] = {
-	{ true, "placement", "placement where the assembled code goes" },
-};
-
 static kindDefinition AsmKinds [] = {
 	{ true, 'd', "define", "defines" },
 	{ true, 'l', "label",  "labels"  },
 	{ true, 'm', "macro",  "macros"  },
 	{ true, 't', "type",   "types (structs and records)"   },
-	{ true, 's', "section",   "sections",
-	  .referenceOnly = true, ATTACH_ROLES(asmSectionRoles)},
 	{ false,'z', "parameter", "parameters for a macro" },
 };
 
@@ -105,6 +98,8 @@ static const keywordTable AsmKeywords [] = {
 	{ "endp",     OP_ENDP        },
 	{ "ends",     OP_ENDS        },
 	{ "equ",      OP_EQU         },
+	{ "global",   OP_GLOBAL      },
+	{ "globl",    OP_GLOBAL      },
 	{ "label",    OP_LABEL       },
 	{ "macro",    OP_MACRO       },
 	{ ":=",       OP_COLON_EQUAL },
@@ -133,12 +128,13 @@ static const opKind OpKinds [] = {
 	{ OP_ENDS,        K_NONE   },
 	{ OP_EQU,         K_DEFINE },
 	{ OP_EQUAL,       K_DEFINE },
+	{ OP_GLOBAL,      K_PSUEDO_FOREIGN_LD_SCRIPT_SYMBOL },
 	{ OP_LABEL,       K_LABEL  },
 	{ OP_MACRO,       K_MACRO  },
 	{ OP_PROC,        K_LABEL  },
 	{ OP_RECORD,      K_TYPE   },
 	{ OP_SECTIONS,    K_NONE   },
-	{ OP_SECTION,     K_SECTION },
+	{ OP_SECTION,     K_PSUEDO_FOREIGN_LD_SCRIPT_SECTION },
 	{ OP_SET,         K_DEFINE },
 	{ OP_STRUCT,      K_TYPE   }
 };
@@ -212,13 +208,72 @@ static bool isDefineOperator (const vString *const operator)
 	return result;
 }
 
+static int makeTagForLdScript (const char * name, int kind, int *scope, bool useCpp)
+{
+	tagEntryInfo e;
+	static langType lang = LANG_AUTO;
+
+	if(lang == LANG_AUTO)
+		lang = getNamedLanguage("LdScript", 0);
+	if(lang == LANG_IGNORE)
+		return CORK_NIL;
+
+	if (kind == K_PSUEDO_FOREIGN_LD_SCRIPT_SYMBOL)
+	{
+		static kindDefinition * kdef = NULL;
+		if(kdef == NULL)
+			kdef = getLanguageKindForName (lang, "symbol");
+		if(kdef == NULL)
+			return CORK_NIL;
+
+		initForeignTagEntry(&e, name, lang, kdef->id);
+		e.extensionFields.scopeIndex = *scope;
+		if (useCpp)
+			updateTagLine (&e, cppGetInputLineNumber (), cppGetInputFilePosition());
+		return makeTagEntry (&e);
+	}
+	else
+	{
+		static kindDefinition * kdef = NULL;
+		if(kdef == NULL)
+			kdef = getLanguageKindForName (lang, "inputSection");
+		if(kdef == NULL)
+			return CORK_NIL;
+
+		static roleDefinition *rdef = NULL;
+		if(rdef == NULL)
+			rdef = getLanguageRoleForName (lang, kdef->id, "destination");
+		if (rdef == NULL)
+			return CORK_NIL;
+
+		initForeignRefTagEntry(&e, name, lang, kdef->id, rdef->id);
+		if (useCpp)
+			updateTagLine (&e, cppGetInputLineNumber (), cppGetInputFilePosition());
+		*scope = makeTagEntry (&e);
+		return *scope;
+	}
+}
+
+static int makeAsmSimpleTag (const vString *const name,
+							 AsmKind kind,
+							 bool useCpp)
+{
+	tagEntryInfo e;
+	initTagEntry (&e, vStringValue (name), kind);
+	if (useCpp)
+		updateTagLine (&e, cppGetInputLineNumber (), cppGetInputFilePosition());
+	return makeTagEntry (&e);
+}
+
 static int makeAsmTag (
 		const vString *const name,
 		const vString *const operator,
 		const bool labelCandidate,
 		const bool nameFollows,
 		const bool directive,
-		int *macroScope)
+		int *sectionScope,
+		int *macroScope,
+		bool useCpp)
 {
 	int r = CORK_NIL;
 
@@ -230,18 +285,20 @@ static int makeAsmTag (
 		if (found)
 		{
 			if (kind > K_NONE)
-				r = makeSimpleTag (name, kind);
+				r = makeAsmSimpleTag (name, kind, useCpp);
 		}
 		else if (isDefineOperator (operator))
 		{
 			if (! nameFollows)
-				r = makeSimpleTag (name, K_DEFINE);
+				r = makeAsmSimpleTag (name, K_DEFINE, useCpp);
 		}
 		else if (labelCandidate)
 		{
 			operatorKind (name, &found);
 			if (! found)
-				r = makeSimpleTag (name, K_LABEL);
+			{
+				r = makeAsmSimpleTag (name, K_LABEL, useCpp);
+			}
 		}
 		else if (directive)
 		{
@@ -254,7 +311,7 @@ static int makeAsmTag (
 			case K_NONE:
 				break;
 			case K_MACRO:
-				r = makeSimpleTag (operator, kind_for_directive);
+				r = makeAsmSimpleTag (operator, kind_for_directive, useCpp);
 				macro_tag = getEntryInCorkQueue (r);
 				if (macro_tag)
 				{
@@ -267,17 +324,18 @@ static int makeAsmTag (
 				macro_tag = getEntryInCorkQueue (*macroScope);
 				if (macro_tag)
 				{
-					macro_tag->extensionFields.endLine = getInputLineNumber ();
+					setTagEndLine (macro_tag,
+								   useCpp? cppGetInputLineNumber (): getInputLineNumber ());
 					*macroScope = macro_tag->extensionFields.scopeIndex;
 				}
 				break;
-			case K_SECTION:
-				r = makeSimpleRefTag (operator,
-									  kind_for_directive,
-									  ASM_SECTION_PLACEMENT);
+			case K_PSUEDO_FOREIGN_LD_SCRIPT_SYMBOL:
+			case K_PSUEDO_FOREIGN_LD_SCRIPT_SECTION:
+				r = makeTagForLdScript (vStringValue (operator),
+										kind_for_directive, sectionScope, useCpp);
 				break;
 			default:
-				r = makeSimpleTag (operator, kind_for_directive);
+				r = makeAsmSimpleTag (operator, kind_for_directive, useCpp);
 				break;
 			}
 		}
@@ -316,32 +374,34 @@ static const unsigned char *readOperator (
 	return cp;
 }
 
-// We stop applying macro replacements if the unget buffer gets too big
-// as it is a sign of recursive macro expansion
-#define ASM_PARSER_MAXIMUM_UNGET_BUFFER_SIZE_FOR_MACRO_REPLACEMENTS 65536
-
-// We stop applying macro replacements if a macro is used so many
-// times in a recursive macro expansion.
-#define ASM_PARSER_MAXIMUM_MACRO_USE_COUNT 8
-
 static bool collectCppMacroArguments (ptrArray *args)
 {
 	vString *s = vStringNew ();
 	int c;
+	unsigned long ln = cppGetInputLineNumber ();
+	MIOPos pos = cppGetInputFilePosition ();
 	int depth = 1;
 
 	do
 	{
+		if (s && vStringLength (s) == 1)
+		{
+			ln = cppGetInputLineNumber ();
+			pos = cppGetInputFilePosition ();
+		}
 		c = cppGetc ();
-		if (c == EOF || c == '\n')
+
+		if (c == EOF)
 			break;
 		else if (c == ')')
 		{
 			depth--;
 			if (depth == 0)
 			{
-				char *cstr = vStringDeleteUnwrap (s);
-				ptrArrayAdd (args, cstr);
+				vStringStripTrailing(s);
+				cppMacroArg *a = cppMacroArgNew (vStringDeleteUnwrap (s), true,
+												 ln, pos);
+				ptrArrayAdd (args, a);
 				s = NULL;
 			}
 			else
@@ -354,12 +414,20 @@ static bool collectCppMacroArguments (ptrArray *args)
 		}
 		else if (c == ',')
 		{
-			char *cstr = vStringDeleteUnwrap (s);
-			ptrArrayAdd (args, cstr);
+			vStringStripTrailing(s);
+			cppMacroArg *a = cppMacroArgNew (vStringDeleteUnwrap (s), true,
+											 ln, pos);
+			ptrArrayAdd (args, a);
 			s = vStringNew ();
 		}
-		else if (c == STRING_SYMBOL || c == CHAR_SYMBOL)
+		else if (c == CPP_STRING_SYMBOL || c == CPP_CHAR_SYMBOL)
 			vStringPut (s, ' ');
+		else if (isspace(c))
+		{
+			if (!vStringIsEmpty (s) &&
+				!isspace ((unsigned char)vStringLast (s)))
+				vStringPut (s, ' ');
+		}
 		else
 			vStringPut (s, c);
 	}
@@ -373,7 +441,8 @@ static bool collectCppMacroArguments (ptrArray *args)
 	return (depth > 0)? false: true;
 }
 
-static bool expandCppMacro (cppMacroInfo *macroInfo)
+static bool expandCppMacro (cppMacroInfo *macroInfo,
+							unsigned long lineNumber, MIOPos filePosition)
 {
 	ptrArray *args = NULL;
 
@@ -384,7 +453,7 @@ static bool expandCppMacro (cppMacroInfo *macroInfo)
 		while (1)
 		{
 			c = cppGetc ();
-			if (c == STRING_SYMBOL || c == CHAR_SYMBOL || !isspace (c))
+			if (c == CPP_STRING_SYMBOL || c == CPP_CHAR_SYMBOL || !isspace (c))
 				break;
 		}
 
@@ -394,7 +463,7 @@ static bool expandCppMacro (cppMacroInfo *macroInfo)
 			return false;
 		}
 
-		args = ptrArrayNew (eFree);
+		args = ptrArrayNew (cppMacroArgDelete);
 		if (!collectCppMacroArguments (args))
 		{
 			/* The input stream is already corrupted.
@@ -404,7 +473,11 @@ static bool expandCppMacro (cppMacroInfo *macroInfo)
 		}
 	}
 
-	cppBuildMacroReplacementWithPtrArrayAndUngetResult(macroInfo, args);
+	{
+		cppMacroTokens *tokens = cppExpandMacro (macroInfo, args,
+												 lineNumber, filePosition);
+		cppUngetMacroTokens (tokens);
+	}
 
 	ptrArrayDelete (args);		/* NULL is acceptable. */
 	return true;
@@ -423,13 +496,20 @@ static bool processCppMacroX (vString *identifier, int lastChar, vString *line)
 {
 	TRACE_ENTER();
 
+	if (cppUngetBufferSize() >= CPP_MAXIMUM_UNGET_BUFFER_SIZE_FOR_MACRO_REPLACEMENTS)
+	{
+		TRACE_LEAVE_TEXT ("Ungetbuffer overflow when processing \"%s\": %d",
+						  vStringValue (identifier), cppUngetBufferSize());
+		return false;
+	}
+
 	bool r = false;
 	cppMacroInfo *macroInfo = cppFindMacro (vStringValue (identifier));
 
 	if (!macroInfo)
 		goto out;
 
-	if(macroInfo && (macroInfo->useCount >= ASM_PARSER_MAXIMUM_MACRO_USE_COUNT))
+	if (macroInfo->useCount >= CPP_MAXIMUM_MACRO_USE_COUNT)
 		goto out;
 
 	if (lastChar != EOF)
@@ -438,7 +518,8 @@ static bool processCppMacroX (vString *identifier, int lastChar, vString *line)
 	TRACE_PRINT("Macro expansion: %s<%p>%s", macroInfo->name,
 				macroInfo, macroInfo->hasParameterList? "(...)": "");
 
-	r = expandCppMacro (macroInfo);
+	r = expandCppMacro (macroInfo,
+						cppGetInputLineNumber (), cppGetInputFilePosition ());
 
  out:
 	if (r)
@@ -448,6 +529,33 @@ static bool processCppMacroX (vString *identifier, int lastChar, vString *line)
 
 	TRACE_LEAVE();
 	return r;
+}
+
+/* If a section name is built with a macro expansion, the following
+ * strings may appear in parts of the string.
+ * - \param
+ * - \()
+ * - \@
+ */
+static bool isCharInMarcoParamref(char c)
+{
+	return (c == '\\' || c == '(' || c == ')'  || c == '@')? true: false;
+}
+
+static bool isEligibleAsSectionName (const vString *str)
+{
+	char *c = vStringValue(str);
+	while (*c)
+	{
+		if (!(isalnum(((unsigned char)*c))
+			  || (*c == '.')
+			  || (*c == '-')
+			  || (*c == '_')
+			  || isCharInMarcoParamref(*c)))
+			return false;
+		c++;
+	}
+	return true;
 }
 
 static const unsigned char *readLineViaCpp (const char *commentChars)
@@ -463,7 +571,7 @@ static const unsigned char *readLineViaCpp (const char *commentChars)
  cont:
 	while ((c = cppGetc()) != EOF)
 	{
-		if (c == STRING_SYMBOL || c == CHAR_SYMBOL)
+		if (c == CPP_STRING_SYMBOL || c == CPP_CHAR_SYMBOL)
 		{
 			/* c == CHAR_SYMBOL is subtle condition.
 			 * If the last char of IDENTIFIER is [0-9a-f],
@@ -475,10 +583,39 @@ static const unsigned char *readLineViaCpp (const char *commentChars)
 				continue;
 
 			/* We cannot store these values to vString
-			 * Store a whitespace as a dummy value for them.
+			 * Store a whitespace as a dummy value for them, but...
 			 */
 			if (!truncation)
+			{
 				vStringPut (line, ' ');
+
+				/* Quoted from the info document of Gas:
+				   -------------------------------------
+				   For ELF targets, the assembler supports another type of '.section'
+				   directive for compatibility with the Solaris assembler:
+
+				   .section "NAME"[, FLAGS...]
+				   -------------------------------------
+
+				   If we replace "..." with ' ' here, we can lost the name
+				   of the section. */
+				const vString *str = cppGetLastCharOrStringContents();
+				if (str)
+				{
+					const char *section = strrstr (vStringValue (line), ".section");
+					if (section && isEligibleAsSectionName(str))
+					{
+						section += strlen(".section");
+						while (isspace((unsigned char)*section))
+							section++;
+						if (*section == '\0')
+						{
+							vStringCat (line, str);
+							vStringPut (line, ' ');
+						}
+					}
+				}
+			}
 		}
 		else if (c == '\n' || (extraLinesepChars[0] != '\0'
 							   && strchr (extraLinesepChars, c) != NULL))
@@ -560,7 +697,8 @@ static const unsigned char *asmReadLineFromInputFile (const char *commentChars, 
 		return readLineNoCpp (commentChars);
 }
 
-static void  readMacroParameters (int index, tagEntryInfo *e, const unsigned char *cp)
+static void  readMacroParameters (int index, tagEntryInfo *e, const unsigned char *cp,
+								  bool useCpp)
 {
 	vString *name = vStringNew ();
 	vString *signature = vStringNew ();
@@ -583,7 +721,7 @@ static void  readMacroParameters (int index, tagEntryInfo *e, const unsigned cha
 			break;
 
 		{
-			int r = makeSimpleTag (name, K_PARAM);
+			int r = makeAsmSimpleTag (name, K_PARAM, useCpp);
 			e = getEntryInCorkQueue (r);
 			if (e)
 			{
@@ -659,6 +797,7 @@ static void findAsmTagsCommon (bool useCpp)
 				 KIND_GHOST_INDEX, 0, 0, KIND_GHOST_INDEX, KIND_GHOST_INDEX, 0, 0,
 				 FIELD_UNKNOWN);
 
+	int sectionScope = CORK_NIL;
 	int macroScope = CORK_NIL;
 
 	 while ((line = asmReadLineFromInputFile (commentCharsInMOL, useCpp)) != NULL)
@@ -723,10 +862,12 @@ static void findAsmTagsCommon (bool useCpp)
 			cp = readSymbol (cp, name);
 			nameFollows = true;
 		}
-		int r = makeAsmTag (name, operator, labelCandidate, nameFollows, directive, &macroScope);
+		int r = makeAsmTag (name, operator, labelCandidate, nameFollows, directive,
+							&sectionScope, &macroScope, useCpp);
 		tagEntryInfo *e = getEntryInCorkQueue (r);
-		if (e && e->kindIndex == K_MACRO && isRoleAssigned(e, ROLE_DEFINITION_INDEX))
-			readMacroParameters (r, e, cp);
+		if (e && e->langType == Lang_asm
+			&& e->kindIndex == K_MACRO && isRoleAssigned(e, ROLE_DEFINITION_INDEX))
+			readMacroParameters (r, e, cp, useCpp);
 	}
 
 	if (useCpp)
@@ -746,6 +887,9 @@ static void initialize (const langType language)
 	Lang_asm = language;
 }
 
+/* dummy definition to allow/require an extra semicolon */
+#define END_DEF(sfx) typedef int ctags_dummy_int_type_ignore_me_##sfx
+
 #define defineCommentCharSetter(PREPOS, POS)							\
 	static bool asmSetCommentChars##PREPOS##POS (const langType language CTAGS_ATTR_UNUSED, \
 												 const char *optname CTAGS_ATTR_UNUSED, const char *arg) \
@@ -758,7 +902,7 @@ static void initialize (const langType language)
 		else															\
 			commentChars##PREPOS##POS = defaultCommentChar##PREPOS##POS; \
 		return true;													\
-	}
+	} END_DEF(asmSetCommentChars##PREPOS##POS)
 
 defineCommentCharSetter(At, BOL);
 defineCommentCharSetter(In, MOL);
@@ -822,7 +966,15 @@ extern parserDefinition* AsmParser (void)
 	};
 	static selectLanguage selectors[] = { selectByArrowOfR, NULL };
 
+	static parserDependency dependencies [] = {
+		{ DEPTYPE_FOREIGNER, "LdScript", NULL },
+	};
+
 	parserDefinition* def = parserNew ("Asm");
+	def->versionCurrent = 1;
+	def->versionAge = 0;
+	def->dependencies = dependencies;
+	def->dependencyCount = ARRAY_SIZE (dependencies);
 	def->kindTable      = AsmKinds;
 	def->kindCount  = ARRAY_SIZE (AsmKinds);
 	def->extensions = extensions;

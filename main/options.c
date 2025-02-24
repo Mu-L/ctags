@@ -34,6 +34,7 @@
 #include "routines_p.h"
 #include "xtag_p.h"
 #include "param_p.h"
+#include "param.h"
 #include "error_p.h"
 #include "interactive_p.h"
 #include "writer_p.h"
@@ -174,7 +175,7 @@ optionValues Option = {
 	.maxRecursionDepth = 0xffffffff,
 	.interactive = false,
 	.fieldsReset = false,
-#ifdef WIN32
+#ifdef _WIN32
 	.useSlashAsFilenameSeparator = FILENAME_SEP_UNSET,
 #endif
 #ifdef DEBUG
@@ -279,7 +280,7 @@ static optionDescription LongOptionDescription [] = {
 #endif
  {1,1,"  --_xformat=<field_format>"},
  {1,1,"       Specify custom format for tabular cross reference (-x)."},
- {1,1,"       Fields can be specified with letter listed in --list-fields."},
+ {1,1,"       Fields can be specified with letter listed in --list-fields. [%-16N %-10K %4n %-16F %C]"},
  {1,1,"       e.g. --_xformat=%10N %10l:%K @ %-20F:%-20n"},
  {1,0,""},
  {1,0,"Language Selection and Mapping Options"},
@@ -343,7 +344,7 @@ static optionDescription LongOptionDescription [] = {
  {0,0,"       Should paths be relative to location of tag file [no; yes when -e]?"},
  {0,0,"       always: be relative even if input files are passed in with absolute paths" },
  {0,0,"       never:  be absolute even if input files are passed in with relative paths" },
-#ifdef WIN32
+#ifdef _WIN32
  {1,0,"  --use-slash-as-filename-separator[=(yes|no)]"},
  {1,0,"       Use slash as filename separator [yes] for u-ctags output format."},
 #endif
@@ -439,6 +440,8 @@ static optionDescription LongOptionDescription [] = {
  {1,0,"       Output list of language mappings (both extensions and patterns)."},
  {1,0,"  --list-mline-regex-flags"},
  {1,0,"       Output list of flags which can be used in a multiline regex parser definition."},
+ {1,0,"  --list-output-formats"},
+ {1,0,"       Output list of output formats."},
  {1,0,"  --list-params[=(<language>|all)]"},
  {1,0,"       Output list of language parameters. This works with --machinable."},
  {0,0,"  --list-pseudo-tags"},
@@ -461,6 +464,8 @@ static optionDescription LongOptionDescription [] = {
  {1,0,"       --list-{aliases,extras,features,fields,kind-full,langdef-flags,params," },
  {1,0,"       pseudo-tags,regex-flags,roles,subparsers} support this option."},
  {1,0,"       Specify before --list-* option."},
+ {1,1,"  --_list-fielddef-flags"},
+ {1,1,"       Output list of flags which can be used with --fielddef option."},
  {1,1,"  --_list-kinddef-flags"},
  {1,1,"       Output list of flags which can be used with --kinddef option."},
  {1,1,"  --_list-langdef-flags"},
@@ -551,7 +556,7 @@ static struct Feature {
 	const char *name;
 	const char *description;
 } Features [] = {
-#ifdef WIN32
+#ifdef _WIN32
 	{"win32", "TO BE WRITTEN"},
 #endif
 	/* Following two features are always available on universal ctags */
@@ -570,7 +575,7 @@ static struct Feature {
 #ifdef CUSTOM_CONFIGURATION_FILE
 	{"custom-conf", "read \"" CUSTOM_CONFIGURATION_FILE "\" as config file"},
 #endif
-#if defined (WIN32)
+#if defined (_WIN32)
 	{"unix-path-separator", "can use '/' as file name separator"},
 #endif
 #ifdef HAVE_ICONV
@@ -604,6 +609,9 @@ static struct Feature {
 #ifdef HAVE_PACKCC
 	/* The test harnesses use this as hints for skipping test cases */
 	{"packcc", "has peg based parser(s)"},
+#ifdef HAVE_PEGOF
+	{"pegof", "makes peg based parser(s) optimized (experimental)"},
+#endif
 #endif
 	{"optscript", "can use the interpreter"},
 #ifdef HAVE_PCRE2
@@ -1184,7 +1192,7 @@ static void processExcludeOptionCommon (
 	else
 	{
 		vString *const item = vStringNewInit (parameter);
-#if defined (WIN32)
+#if defined (_WIN32)
 		vStringTranslate(item, PATH_SEPARATOR, OUTPUT_PATH_SEPARATOR);
 #endif
 		if (*list == NULL)
@@ -2162,9 +2170,21 @@ static void processListMapsOption (
 
 static void processListLanguagesOption (
 		const char *const option CTAGS_ATTR_UNUSED,
-		const char *const parameter CTAGS_ATTR_UNUSED)
+		const char *const parameter)
 {
-	printLanguageList ();
+	enum parserCategory category = PARSER_CATEGORY_NONE;
+
+	if (parameter)
+	{
+		if (strcmp(parameter, "_libxml") == 0)
+			category = PARSER_CATEGORY_LIBXML;
+		else if (strcmp(parameter, "_libyaml") == 0)
+			category = PARSER_CATEGORY_LIBYAML;
+		else if (strcmp(parameter, "_packcc") == 0)
+			category = PARSER_CATEGORY_PACKCC;
+	}
+
+	printLanguageList (category);
 	exit (0);
 }
 
@@ -2216,6 +2236,15 @@ static void processListKinddefFlagsOptions (
 	exit (0);
 }
 
+static void processListFielddefFlagsOptions (
+		const char *const option CTAGS_ATTR_UNUSED,
+		const char *const parameter CTAGS_ATTR_UNUSED)
+{
+	printFielddefFlags (localOption.withListHeader, localOption.machinable, stdout);
+	exit (0);
+}
+
+attr__noreturn
 static void processListRolesOptions (const char *const option CTAGS_ATTR_UNUSED,
 				     const char *const parameter)
 {
@@ -2294,6 +2323,13 @@ static void processListOperators (const char *const option CTAGS_ATTR_UNUSED,
 								  const char *const parameter)
 {
 	listRegexOpscriptOperators (stdout);
+	exit (0);
+}
+
+static void processListOutputFormatsOption(const char *const option CTAGS_ATTR_UNUSED,
+										   const char *const parameter CTAGS_ATTR_UNUSED)
+{
+	printOutputFormats (localOption.withListHeader, localOption.machinable, stdout);
 	exit (0);
 }
 
@@ -2389,20 +2425,42 @@ static void processOutputFormat (const char *const option CTAGS_ATTR_UNUSED,
 	if (parameter [0] == '\0')
 		error (FATAL, "no output format name supplied for \"%s\"", option);
 
-	if (strcmp (parameter, "u-ctags") == 0)
-		;
-	else if (strcmp (parameter, "e-ctags") == 0)
-		setTagWriter (WRITER_E_CTAGS, NULL);
-	else if (strcmp (parameter, "etags") == 0)
+	writerType t = getWrierForOutputFormat (parameter);
+	if (t == WRITER_DEFAULT)
+		return;
+
+	switch (t)
+	{
+	case WRITER_UNAVAILABLE:
+		error (FATAL,
+			   "the output format \"%s\" is not available on this platform",
+			   parameter);
+		break;
+	case WRITER_UNKNOWN:
+		error (FATAL, "unknown output format name supplied for \"%s=%s\"",
+			   option, parameter);
+		break;
+
+	case WRITER_U_CTAGS:
+	case WRITER_E_CTAGS:
+		setTagWriter (t, NULL);
+		break;
+	case WRITER_ETAGS:
 		setEtagsMode ();
-	else if (strcmp (parameter, "xref") == 0)
+		break;
+	case WRITER_XREF:
 		setXrefMode ();
+		break;
 #ifdef HAVE_JANSSON
-	else if (strcmp (parameter, "json") == 0)
+	case WRITER_JSON:
 		setJsonMode ();
+		break;
 #endif
-	else
-		error (FATAL, "unknown output format name supplied for \"%s=%s\"", option, parameter);
+	case WRITER_CUSTOM:
+	case WRITER_COUNT:			/* Suppress warnings that gcc reports */
+		AssertNotReached ();
+		break;
+	}
 }
 
 static void processPseudoTags (const char *const option CTAGS_ATTR_UNUSED,
@@ -2600,7 +2658,7 @@ static void processIgnoreOption (const char *const list, int IgnoreOrDefine)
 		const char* fileName = (*list == '@') ? list + 1 : list;
 		addIgnoreListFromFile (lang, fileName);
 	}
-#if defined (WIN32)
+#if defined (_WIN32)
 	else if (isalpha ((unsigned char) list [0])  &&  list [1] == ':')
 		addIgnoreListFromFile (lang, list);
 #endif
@@ -2860,6 +2918,7 @@ static parametricOption ParametricOptions [] = {
 	{ "list-map-extensions",    processListMapExtensionsOption, true,   STAGE_ANY },
 	{ "list-map-patterns",      processListMapPatternsOption,   true,   STAGE_ANY },
 	{ "list-mline-regex-flags", processListMultilineRegexFlagsOptions, true, STAGE_ANY },
+	{ "list-output-formats",    processListOutputFormatsOption, true,   STAGE_ANY },
 	{ "list-params",            processListParametersOption,    true,   STAGE_ANY },
 	{ "list-pseudo-tags",       processListPseudoTagsOptions,   true,   STAGE_ANY },
 	{ "list-regex-flags",       processListRegexFlagsOptions,   true,   STAGE_ANY },
@@ -2886,6 +2945,7 @@ static parametricOption ParametricOptions [] = {
 #ifdef HAVE_JANSSON
 	{ "_interactive",           processInteractiveOption,       true,   STAGE_ANY },
 #endif
+	{ "_list-fielddef-flags",   processListFielddefFlagsOptions,true,   STAGE_ANY },
 	{ "_list-kinddef-flags",    processListKinddefFlagsOptions, true,   STAGE_ANY },
 	{ "_list-langdef-flags",    processListLangdefFlagsOptions, true,   STAGE_ANY },
 	{ "_list-mtable-regex-flags", processListMultitableRegexFlagsOptions, true, STAGE_ANY },
@@ -2912,7 +2972,7 @@ static booleanOption BooleanOptions [] = {
 	{ "recurse",        &Option.recurse,                false, STAGE_ANY },
 #endif
 	{ "verbose",        &ctags_verbose,                 false, STAGE_ANY },
-#ifdef WIN32
+#ifdef _WIN32
 	{ "use-slash-as-filename-separator", (bool *)&Option.useSlashAsFilenameSeparator, false, STAGE_ANY },
 #endif
 	{ "with-list-header", &localOption.withListHeader,  true,  STAGE_ANY },
@@ -3672,7 +3732,6 @@ static char* prependEnvvar (const char *path, const char* envvar)
 	return full_path;
 }
 
-#ifndef WIN32
 static char *getConfigForXDG (const char *path CTAGS_ATTR_UNUSED,
 							  const char* extra CTAGS_ATTR_UNUSED)
 {
@@ -3682,9 +3741,8 @@ static char *getConfigForXDG (const char *path CTAGS_ATTR_UNUSED,
 
 	return prependEnvvar (".config/ctags", "HOME");
 }
-#endif
 
-#ifdef WIN32
+#ifdef _WIN32
 static char *getConfigAtHomeOnWindows (const char *path,
 									   const char* extra CTAGS_ATTR_UNUSED)
 {
@@ -3758,14 +3816,12 @@ static struct preloadPathElt preload_path_list [] = {
 		.stage = OptionLoadingStageCustom,
 	},
 #endif
-#ifndef WIN32
 	{
 		.path = NULL,
 		.isDirectory = true,
 		.makePath = getConfigForXDG,
 		.stage = OptionLoadingStageXdg,
 	},
-#endif
 	{
 		.path = ".ctags.d",
 		.isDirectory = true,
@@ -3773,7 +3829,7 @@ static struct preloadPathElt preload_path_list [] = {
 		.extra = "HOME",
 		.stage = OptionLoadingStageHomeDir,
 	},
-#ifdef WIN32
+#ifdef _WIN32
 	{
 		.path = "ctags.d",
 		.isDirectory = true,

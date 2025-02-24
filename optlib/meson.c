@@ -10,6 +10,10 @@
 
 static void initializeMesonParser (const langType language)
 {
+	addLanguageOptscriptToHook (language, SCRIPT_HOOK_PRELUDE,
+		"{{    /lastvar false def\n"
+		"    /cfgdict 5 dict def\n"
+		"}}");
 
 	addLanguageRegexTable (language, "main");
 	addLanguageRegexTable (language, "mline_string");
@@ -44,11 +48,37 @@ static void initializeMesonParser (const langType language)
 	                               "^(alias|run)_target[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\2", "r", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "main",
-	                               "^bench_mark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
+	                               "^benchmark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "b", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "main",
 	                               "^import[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "m", "{tenter=skipToArgEnd}{_role=imported}", NULL);
+	addLanguageTagMultiTableRegex (language, "main",
+	                               "^configuration_data[ \t\n]*\\([ \t\n]*\\)[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   lastvar false ne {\n"
+		"      lastvar :name\n"
+		"      /cfgdata\n"
+		"      lastvar _tagloc\n"
+		"      _tag _commit\n"
+		"\n"
+		"      cfgdict lastvar :name 3 -1 roll put\n"
+		"\n"
+		"      % Don't emit the tag for the original variable.\n"
+		"      lastvar _markplaceholder\n"
+		"      /lastvar false def\n"
+		"   } if\n"
+		"}}", NULL);
+	addLanguageTagMultiTableRegex (language, "main",
+	                               "^([a-zA-Z_][a-zA-Z0-9_]*)\\.(set(_quoted|10)?)[ \t\n]*\\('([^']*[^\\\\])'[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   cfgdict \\1 known {\n"
+		"      \\4 /cfgvar @4 _tag _commit\n"
+		"      cfgdict \\1 get scope:\n"
+		"   } if\n"
+		"}}", NULL);
 	addLanguageTagMultiTableRegex (language, "main",
 	                               "^project[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "P", "{tenter=skipToArgEnd}", NULL);
@@ -59,8 +89,11 @@ static void initializeMesonParser (const langType language)
 	                               "^test[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "t", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "main",
-	                               "^([a-zA-Z_][a-zA-Z_0-9]*)[ \t\n]*=[ \t\n]*",
-	                               "\\1", "V", "", NULL);
+	                               "^([a-zA-Z_][a-zA-Z_0-9]*)[ \t\n]*=([^=]|$)",
+	                               "\\1", "V", "{_advanceTo=2start}"
+		"{{\n"
+		"   /lastvar . def\n"
+		"}}", NULL);
 	addLanguageTagMultiTableRegex (language, "main",
 	                               "^.",
 	                               "", "", "", NULL);
@@ -74,14 +107,17 @@ static void initializeMesonParser (const langType language)
 	                               "^.",
 	                               "", "", "", NULL);
 	addLanguageTagMultiTableRegex (language, "string",
-	                               "^\\\\'",
+	                               "^[^\\\\']+",
 	                               "", "", "", NULL);
 	addLanguageTagMultiTableRegex (language, "string",
-	                               "^[^\\\\']+",
+	                               "^\\\\.",
 	                               "", "", "", NULL);
 	addLanguageTagMultiTableRegex (language, "string",
 	                               "^'",
 	                               "", "", "{tleave}", NULL);
+	addLanguageTagMultiTableRegex (language, "string",
+	                               "^.",
+	                               "", "", "", NULL);
 	addLanguageTagMultiTableRegex (language, "comment",
 	                               "^[^\n]+",
 	                               "", "", "", NULL);
@@ -113,11 +149,37 @@ static void initializeMesonParser (const langType language)
 	                               "^(alias|run)_target[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\2", "r", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipPair",
-	                               "^bench_mark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
+	                               "^benchmark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "b", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipPair",
 	                               "^import[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "m", "{tenter=skipToArgEnd}{_role=imported}", NULL);
+	addLanguageTagMultiTableRegex (language, "skipPair",
+	                               "^configuration_data[ \t\n]*\\([ \t\n]*\\)[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   lastvar false ne {\n"
+		"      lastvar :name\n"
+		"      /cfgdata\n"
+		"      lastvar _tagloc\n"
+		"      _tag _commit\n"
+		"\n"
+		"      cfgdict lastvar :name 3 -1 roll put\n"
+		"\n"
+		"      % Don't emit the tag for the original variable.\n"
+		"      lastvar _markplaceholder\n"
+		"      /lastvar false def\n"
+		"   } if\n"
+		"}}", NULL);
+	addLanguageTagMultiTableRegex (language, "skipPair",
+	                               "^([a-zA-Z_][a-zA-Z0-9_]*)\\.(set(_quoted|10)?)[ \t\n]*\\('([^']*[^\\\\])'[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   cfgdict \\1 known {\n"
+		"      \\4 /cfgvar @4 _tag _commit\n"
+		"      cfgdict \\1 get scope:\n"
+		"   } if\n"
+		"}}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipPair",
 	                               "^[])}]",
 	                               "", "", "{tleave}", NULL);
@@ -149,11 +211,37 @@ static void initializeMesonParser (const langType language)
 	                               "^(alias|run)_target[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\2", "r", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "common",
-	                               "^bench_mark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
+	                               "^benchmark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "b", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "common",
 	                               "^import[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "m", "{tenter=skipToArgEnd}{_role=imported}", NULL);
+	addLanguageTagMultiTableRegex (language, "common",
+	                               "^configuration_data[ \t\n]*\\([ \t\n]*\\)[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   lastvar false ne {\n"
+		"      lastvar :name\n"
+		"      /cfgdata\n"
+		"      lastvar _tagloc\n"
+		"      _tag _commit\n"
+		"\n"
+		"      cfgdict lastvar :name 3 -1 roll put\n"
+		"\n"
+		"      % Don't emit the tag for the original variable.\n"
+		"      lastvar _markplaceholder\n"
+		"      /lastvar false def\n"
+		"   } if\n"
+		"}}", NULL);
+	addLanguageTagMultiTableRegex (language, "common",
+	                               "^([a-zA-Z_][a-zA-Z0-9_]*)\\.(set(_quoted|10)?)[ \t\n]*\\('([^']*[^\\\\])'[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   cfgdict \\1 known {\n"
+		"      \\4 /cfgvar @4 _tag _commit\n"
+		"      cfgdict \\1 get scope:\n"
+		"   } if\n"
+		"}}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipToArgEnd",
 	                               "^[ \t\n]+",
 	                               "", "", "", NULL);
@@ -179,11 +267,37 @@ static void initializeMesonParser (const langType language)
 	                               "^(alias|run)_target[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\2", "r", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipToArgEnd",
-	                               "^bench_mark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
+	                               "^benchmark[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "b", "{tenter=skipToArgEnd}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipToArgEnd",
 	                               "^import[ \t\n]*\\([ \t\n]*'([^']*[^\\\\])'[ \t\n]*",
 	                               "\\1", "m", "{tenter=skipToArgEnd}{_role=imported}", NULL);
+	addLanguageTagMultiTableRegex (language, "skipToArgEnd",
+	                               "^configuration_data[ \t\n]*\\([ \t\n]*\\)[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   lastvar false ne {\n"
+		"      lastvar :name\n"
+		"      /cfgdata\n"
+		"      lastvar _tagloc\n"
+		"      _tag _commit\n"
+		"\n"
+		"      cfgdict lastvar :name 3 -1 roll put\n"
+		"\n"
+		"      % Don't emit the tag for the original variable.\n"
+		"      lastvar _markplaceholder\n"
+		"      /lastvar false def\n"
+		"   } if\n"
+		"}}", NULL);
+	addLanguageTagMultiTableRegex (language, "skipToArgEnd",
+	                               "^([a-zA-Z_][a-zA-Z0-9_]*)\\.(set(_quoted|10)?)[ \t\n]*\\('([^']*[^\\\\])'[ \t\n]*",
+	                               "", "", ""
+		"{{\n"
+		"   cfgdict \\1 known {\n"
+		"      \\4 /cfgvar @4 _tag _commit\n"
+		"      cfgdict \\1 get scope:\n"
+		"   } if\n"
+		"}}", NULL);
 	addLanguageTagMultiTableRegex (language, "skipToArgEnd",
 	                               "^[])}]",
 	                               "", "", "{tleave}", NULL);
@@ -239,17 +353,24 @@ extern parserDefinition* MesonParser (void)
 		  true, 'm', "module", "modules",
 		  ATTACH_ROLES(MesonModuleRoleTable),
 		},
+		{
+		  true, 'D', "cfgdata", "configuration data objects",
+		},
+		{
+		  true, 'C', "cfgvar", "configuration variables",
+		},
 	};
 
 	parserDefinition* const def = parserNew ("Meson");
 
-	def->versionCurrent= 0;
-	def->versionAge    = 0;
+	def->versionCurrent= 1;
+	def->versionAge    = 1;
 	def->enabled       = true;
 	def->extensions    = extensions;
 	def->patterns      = patterns;
 	def->aliases       = aliases;
 	def->method        = METHOD_NOT_CRAFTED|METHOD_REGEX;
+	def->useCork       = CORK_QUEUE;
 	def->kindTable     = MesonKindTable;
 	def->kindCount     = ARRAY_SIZE(MesonKindTable);
 	def->initialize    = initializeMesonParser;

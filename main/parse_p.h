@@ -37,6 +37,14 @@ typedef enum {
 	LMAP_TABLE_OUTPUT = 1 << 2,
 } langmapType;
 
+enum parserCategory
+{
+	PARSER_CATEGORY_NONE,
+	PARSER_CATEGORY_LIBXML,
+	PARSER_CATEGORY_LIBYAML,
+	PARSER_CATEGORY_PACKCC,
+};
+
 /*
 *   FUNCTION PROTOTYPES
 */
@@ -115,13 +123,14 @@ extern void printLanguageRoles (const langType language, const char* letters,
 								bool withListHeader, bool machinable, FILE *fp);
 extern void printLanguageAliases (const langType language,
 								  bool withListHeader, bool machinable, FILE *fp);
-extern void printLanguageList (void);
+extern void printLanguageList (enum parserCategory category);
 extern void printLanguageParams (const langType language,
 								 bool withListHeader, bool machinable, FILE *fp);
 extern void printLanguageSubparsers (const langType language,
 									 bool withListHeader, bool machinable, FILE *fp);
 extern void printLangdefFlags (bool withListHeader, bool machinable, FILE *fp);
 extern void printKinddefFlags (bool withListHeader, bool machinable, FILE *fp);
+extern void printFielddefFlags (bool withListHeader, bool machinable, FILE *fp);
 extern bool doesParserRequireMemoryStream (const langType language);
 extern bool parseFile (const char *const fileName);
 extern bool parseFileWithMio (const char *const fileName, MIO *mio, void *clientData);
@@ -145,7 +154,8 @@ extern bool processLanguageRegexOption (langType language, enum regexParserType 
 extern void notifyLanguageRegexInputStart (langType language);
 extern void notifyLanguageRegexInputEnd (langType language);
 
-extern void matchLanguageRegex (const langType language, const vString* const line);
+extern bool hasLanguagePostRunRegexPatterns (const langType language);
+extern void matchLanguageRegex (const langType language, const vString* const line, bool postrun);
 extern void freeRegexResources (void);
 extern bool checkRegex (void);
 extern void useRegexMethod (const langType language);
