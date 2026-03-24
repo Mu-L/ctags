@@ -229,6 +229,7 @@ OPTLIB2C_PCRE2_SRCS = $(OPTLIB2C_PCRE2_INPUT:.ctags=.c)
 OPTLIB2C_INPUT = \
 	optlib/cmake.ctags			\
 	optlib/ctags-optlib.ctags		\
+	optlib/dosbatch.ctags			\
 	optlib/elixir.ctags			\
 	optlib/forth.ctags			\
 	optlib/gdbinit.ctags			\
@@ -376,7 +377,6 @@ PARSER_SRCS =				\
 	parsers/cxx/cxx_token_chain.c	\
 	parsers/dbus-service.c		\
 	parsers/diff.c			\
-	parsers/dosbatch.c		\
 	parsers/dtd.c			\
 	parsers/dts.c			\
 	parsers/eiffel.c		\

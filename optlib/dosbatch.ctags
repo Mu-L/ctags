@@ -1,0 +1,21 @@
+#
+#   Copyright (c) 2009, David Fishburn
+#   Copyright (c) 2026, Masatake YAMATO
+#
+#   This source code is released for free distribution under the terms of the
+#   GNU General Public License version 2 or (at your option) any later version.
+#
+#   This module contains functions for generating tags for DOS Batch language files.
+#
+#   Masatake YAMATO converted the original .c file to .ctags.
+#
+--langdef=DosBatch
+--map-DosBatch=+.bat
+--map-DosBatch=+.cmd
+--__selector-DosBatch=selectByRexxCommentAndDosbatchLabelPrefix
+
+--kinddef-DosBatch=l,label,labels
+--kinddef-DosBatch=v,variable,variables
+
+--regex-DosBatch=/^:([A-Za-z_0-9]+)/\1/l/
+--regex-DosBatch=/set[ \t]+([A-Za-z_0-9]+)[ \t]*=/\1/v/{icase}

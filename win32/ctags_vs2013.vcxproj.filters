@@ -234,6 +234,9 @@
     <ClCompile Include="..\optlib\ctags-optlib.c">
       <Filter>Source Files\optlib</Filter>
     </ClCompile>
+    <ClCompile Include="..\optlib\dosbatch.c">
+      <Filter>Source Files\optlib</Filter>
+    </ClCompile>
     <ClCompile Include="..\optlib\elixir.c">
       <Filter>Source Files\optlib</Filter>
     </ClCompile>
@@ -454,9 +457,6 @@
       <Filter>Source Files\parsers</Filter>
     </ClCompile>
     <ClCompile Include="..\parsers\diff.c">
-      <Filter>Source Files\parsers</Filter>
-    </ClCompile>
-    <ClCompile Include="..\parsers\dosbatch.c">
       <Filter>Source Files\parsers</Filter>
     </ClCompile>
     <ClCompile Include="..\parsers\dtd.c">

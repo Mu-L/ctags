@@ -237,6 +237,7 @@
     <ClCompile Include="..\main\xtag.c" />
     <ClCompile Include="..\optlib\cmake.c" />
     <ClCompile Include="..\optlib\ctags-optlib.c" />
+    <ClCompile Include="..\optlib\dosbatch.c" />
     <ClCompile Include="..\optlib\elixir.c" />
     <ClCompile Include="..\optlib\forth.c" />
     <ClCompile Include="..\optlib\gdbinit.c" />
@@ -311,7 +312,6 @@
     <ClCompile Include="..\parsers\cxx\cxx_token_chain.c" />
     <ClCompile Include="..\parsers\dbus-service.c" />
     <ClCompile Include="..\parsers\diff.c" />
-    <ClCompile Include="..\parsers\dosbatch.c" />
     <ClCompile Include="..\parsers\dtd.c" />
     <ClCompile Include="..\parsers\dts.c" />
     <ClCompile Include="..\parsers\eiffel.c" />
