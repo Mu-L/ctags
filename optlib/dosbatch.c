@@ -29,12 +29,31 @@ extern parserDefinition* DosBatchParser (void)
 		NULL
 	};
 
+	static roleDefinition DosBatchLabelRoleTable [] = {
+		{
+		  false, "called", "called via call command",
+		  .version = 1,
+		},
+	};
+	static roleDefinition DosBatchBatchfileRoleTable [] = {
+		{
+		  true, "called", "called via call command",
+		  .version = 1,
+		},
+	};
 	static kindDefinition DosBatchKindTable [] = {
 		{
 		  true, 'l', "label", "labels",
+		  ATTACH_ROLES(DosBatchLabelRoleTable),
 		},
 		{
 		  true, 'v', "variable", "variables",
+		},
+		{
+		  true, 'b', "batchfile", "batch files",
+		  .referenceOnly = true,
+		  ATTACH_ROLES(DosBatchBatchfileRoleTable),
+		  .version = 1,
 		},
 	};
 	static tagRegexTable DosBatchTagRegexTable [] = {
@@ -42,14 +61,20 @@ extern parserDefinition* DosBatchParser (void)
 		"l", NULL, NULL, false},
 		{"set[ \t]+([A-Za-z_0-9]+)[ \t]*=", "\\1",
 		"v", "{icase}", NULL, false},
+		{"call[ \t]+:([A-Za-z_0-9]+)", "\\1",
+		"l", "{_role=called}{icase}{exclusive}", NULL, false},
+		{"call[ \t]+\"([^\"]+)\"", "\\1",
+		"b", "{_role=called}{icase}{exclusive}", NULL, false},
+		{"call[ \t]+([^\t ]+)", "\\1",
+		"b", "{_role=called}{icase}{exclusive}", NULL, false},
 	};
 
 	static selectLanguage selectors[] = { selectByRexxCommentAndDosbatchLabelPrefix, NULL };
 
 	parserDefinition* const def = parserNew ("DosBatch");
 
-	def->versionCurrent= 0;
-	def->versionAge    = 0;
+	def->versionCurrent= 1;
+	def->versionAge    = 1;
 	def->enabled       = true;
 	def->extensions    = extensions;
 	def->patterns      = patterns;

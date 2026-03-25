@@ -87,6 +87,12 @@ Rust:
       in macro arguments as tags. For such tags, the parser records
       the name of the enclosing macro invocation in the ``macro`` field.
 
+DosBatch:
+
+    * Add ``batchfile`` kind to extract the names of batch files passed to ``call`` command.
+      New ``called`` role is used for recording batch files.
+    * Add ``called`` role to ``label`` kind for recording labels passed to ``call`` command.
+
 New parsers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following parsers have been added:
