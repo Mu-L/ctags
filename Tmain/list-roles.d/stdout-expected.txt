@@ -54,6 +54,8 @@ DTD                     e/element         attOwner           on        0 attribu
 DTD                     p/parameterEntity condition          on        0 conditions
 DTD                     p/parameterEntity elementName        on        0 element names
 DTD                     p/parameterEntity partOfAttDef       on        0 part of attribute definition
+DosBatch                b/batchfile       called             on        1 called via call command
+DosBatch                l/label           called             off       1 called via call command
 Elm                     c/constructor     exposed            on        0 item exposed from a module
 Elm                     f/function        exposed            on        0 item exposed from a module
 Elm                     m/module          imported           on        0 module imported
@@ -212,6 +214,8 @@ DTD                     e/element         attOwner           on        0 attribu
 DTD                     p/parameterEntity condition          on        0 conditions
 DTD                     p/parameterEntity elementName        on        0 element names
 DTD                     p/parameterEntity partOfAttDef       on        0 part of attribute definition
+DosBatch                b/batchfile       called             on        1 called via call command
+DosBatch                l/label           called             off       1 called via call command
 Elm                     c/constructor     exposed            on        0 item exposed from a module
 Elm                     f/function        exposed            on        0 item exposed from a module
 Elm                     m/module          imported           on        0 module imported
