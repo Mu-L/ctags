@@ -112,6 +112,8 @@ Changes about parser specific kinds, roles, fields, and extras
 Readtags
 ---------------------------------------------------------------------
 
+* Update the bundled libreadtags to version 0.5.0.
+
 * Add ``list`` operator to the filter and sorter engines.
   The operator was available only in the formatter expression.
 
