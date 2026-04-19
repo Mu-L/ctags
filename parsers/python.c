@@ -1927,7 +1927,7 @@ static void finalize (langType language CTAGS_ATTR_UNUSED, bool initialized)
 
 extern parserDefinition* PythonParser (void)
 {
-	static const char *const extensions[] = { "py", "pyx", "pxd", "pxi", "scons",
+	static const char *const extensions[] = { "py", "pyw", "pyx", "pxd", "pxi", "scons",
 											  "wsgi", NULL };
 	static const char *const aliases[] = { "python[23]*", "scons", NULL };
 	parserDefinition *def = parserNew ("Python");
