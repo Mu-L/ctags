@@ -804,7 +804,7 @@ extern langType getLanguageComponentInOptionFull (const char *const option,
 	size_t prefix_len;
 	langType language;
 	const char *lang;
-	char *sep = NULL;
+	const char *sep = NULL;
 	size_t lang_len = 0;
 
 	Assert (prefix && prefix[0]);
@@ -1076,7 +1076,7 @@ static void addExtensionList (
 		stringList *const slist, const char *const elist, const bool clear)
 {
 	char *const extensionList = eStrdup (elist);
-	const char *extension = NULL;
+	char *extension = NULL;
 	bool first = true;
 
 	if (clear)

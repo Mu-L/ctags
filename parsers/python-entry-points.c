@@ -93,11 +93,13 @@ static void newDataCallback (iniconfSubparser *iniconf,
 	if (!value)
 		return;
 
-	char *sep = strrchr (value, ':');
+	char *vdup = eStrdup (value);
+	char *sep = strrchr (vdup, ':');
+
 	if (sep)
 		*sep = '\0';
 
-	initForeignRefTagEntry (&e, value, Lang_python,
+	initForeignRefTagEntry (&e, vdup, Lang_python,
 							PYTHON_MODULE_KIND, PYTHON_MODULE_ENTRY_POINT);
 	int mod = makeTagEntry (&e);
 
@@ -109,8 +111,7 @@ static void newDataCallback (iniconfSubparser *iniconf,
 		makeTagEntry (&e);
 	}
 
-	if (sep)
-		*sep = ':';
+	eFree (vdup);
 }
 
 static void findPythonEntryPointsTags (void)

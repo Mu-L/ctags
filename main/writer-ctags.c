@@ -434,7 +434,7 @@ static int writeCtagsPtagEntry (tagWriter *writer,
 	}
 	else if (fileName)
 	{
-		char *c = NULL;
+		const char *c = NULL;
 		if ((c = strchr (fileName, '\t')) || (c = strchr (fileName, '\n')))
 		{
 			vStringDelete (vfileName);

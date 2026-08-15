@@ -2643,7 +2643,7 @@ static vString *trimGarbageInSignature (vString *sig)
 {
 	/* Drop "=>" at the end. */
 	const char *sigstr = vStringValue (sig);
-	char *last = strrchr (sigstr, ')');
+	const char *last = strrchr (sigstr, ')');
 	Assert (last);
 	vStringTruncate (sig, last - sigstr + 1);
 	return sig;

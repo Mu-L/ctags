@@ -547,9 +547,9 @@ static bool isPathSeparator (const int c)
 static char *strSeparator (const char *s)
 {
 #if defined (MSDOS_STYLE_PATH)
-	return strpbrk (s, PathDelimiters);
+	return (char*) strpbrk (s, PathDelimiters);
 #else
-	return strchr (s, PATH_SEPARATOR);
+	return (char*) strchr (s, PATH_SEPARATOR);
 #endif
 }
 
@@ -565,7 +565,7 @@ static char *strRSeparator (const char *s)
 	}
 	return (char*) last;
 #else
-	return strrchr (s, PATH_SEPARATOR);
+	return (char*) strrchr (s, PATH_SEPARATOR);
 #endif
 }
 

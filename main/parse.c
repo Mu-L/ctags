@@ -2543,7 +2543,7 @@ extern void processLanguageDefineOption (
 		const char *const option, const char *const parameter)
 {
 	char *name;
-	char *flags;
+	const char *flags;
 	parserDefinition*  def;
 
 	flags = strchr (parameter, LONG_FLAGS_OPEN);
@@ -3395,7 +3395,7 @@ static void processLangKindRoleDefinition (
 		else if (*p == '{')
 		{
 			p++;
-			char *q = strchr (p, '}');
+			const char *q = strchr (p, '}');
 			if (!q)
 
 				error (FATAL, "no '}' representing the end of role name in --%s option: %s",
