@@ -855,6 +855,8 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 	enum regexParserType type = flagData->type;
 	struct guestSpec *guest = flagData->guest;
 	struct boundarySpec *current;
+	char *vdup;
+	char *tmp;
 
 	if (!v)
 	{
@@ -862,34 +864,36 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 		return;
 	}
 
-	char *tmp = strchr (v, ',');
+	vdup = eStrdup (v);
+	tmp = strchr (vdup, ',');
+
 	if (tmp == NULL)
 	{
 		error (WARNING, "no terminator found for parser name: %s", s);
-		return;
+		goto cleanup;
 	}
 
-	if ((tmp - v) == 0)
+	if ((tmp - vdup) == 0)
 	{
 		if (type == REG_PARSER_MULTI_LINE)
 		{
 			error (WARNING,
-				   "using placeholder for guest name field is not allowed in multiline regex spec: %s", v);
+				   "using placeholder for guest name field is not allowed in multiline regex spec: %s", vdup);
 			goto err;
 		}
 
 		guest->lang.type = GUEST_LANG_PLACEHOLDER;
 	}
-	else if (*v == '\\' || *v == '*')
+	else if (*vdup == '\\' || *vdup == '*')
 	{
-		const char *n_tmp = v + 1;
+		char *n_tmp = vdup + 1;
 		const char *n = n_tmp;
 		for (; isdigit ((unsigned char) *n_tmp); n_tmp++);
 		char c = *n_tmp;
-		*(char *)n_tmp = '\0';
+		*n_tmp = '\0';
 		if (!strToInt (n, 10, &(guest->lang.spec.patternGroup)))
 		{
-			error (WARNING, "wrong guest name specification: %s", v);
+			error (WARNING, "wrong guest name specification: %s", vdup);
 			goto err;
 		}
 		else if (guest->lang.spec.patternGroup >= BACK_REFERENCE_COUNT)
@@ -899,23 +903,23 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 			goto err;
 		}
 
-		*(char *)n_tmp = c;
+		*n_tmp = c;
 		if (*n_tmp != ',')
 		{
-			error (WARNING, "wrong guest specification (garbage at the end of end guest spec): %s", v);
+			error (WARNING, "wrong guest specification (garbage at the end of end guest spec): %s", vdup);
 			goto err;
 		}
 
-		guest->lang.type = (*v == '\\')
+		guest->lang.type = (*vdup == '\\')
 			? GUEST_LANG_PTN_GROUP_FOR_LANGNAME
 			: GUEST_LANG_PTN_GROUP_FOR_FILEMAP;
 	}
 	else
 	{
-		guest->lang.spec.lang = getNamedLanguageOrAlias (v, (tmp - v));
+		guest->lang.spec.lang = getNamedLanguageOrAlias (vdup, (tmp - vdup));
 		if (guest->lang.spec.lang == LANG_IGNORE)
 		{
-			error (WARNING, "no parser found for the guest spec: %s", v);
+			error (WARNING, "no parser found for the guest spec: %s", vdup);
 			goto err;
 		}
 		guest->lang.type = GUEST_LANG_STATIC_LANGNAME;
@@ -924,7 +928,7 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 	tmp++;
 	if (*tmp == '\0')
 	{
-		error (WARNING, "no area spec found in the guest spec: %s", v);
+		error (WARNING, "no area spec found in the guest spec: %s", vdup);
 		goto err;
 	}
 
@@ -938,7 +942,7 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 			if (type == REG_PARSER_MULTI_LINE)
 				error (WARNING,
 					   "using placeholder for %s field is not allowed in multiline regex spec: %s",
-					   current_field_str, v);
+					   current_field_str, vdup);
 
 			current->placeholder = true;
 		}
@@ -952,14 +956,14 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 			if (!strToInt (n, 10, &(current->patternGroup)))
 			{
 				error (WARNING, "wrong guest area specification (patternGroup of %s, number expected): %s:%s",
-					   current_field_str, v, n);
+					   current_field_str, vdup, n);
 				goto err;
 			}
 			*tmp = c;
 			if (*tmp == '\0')
 			{
 				error (WARNING, "wrong guest area specification (patternGroup of %s, nether start nor end given): %s",
-					   current_field_str, v);
+					   current_field_str, vdup);
 				goto err;
 			}
 			else if (strncmp (tmp, "start", 5) == 0)
@@ -975,7 +979,7 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 			else
 			{
 				error (WARNING, "wrong guest area specification (%s): %s",
-					   current_field_str, v);
+					   current_field_str, vdup);
 				goto err;
 			}
 		}
@@ -985,20 +989,22 @@ static void pre_ptrn_flag_guest_long (const char* const s, const char* const v, 
 			if (*tmp != ',')
 			{
 				error (WARNING,
-					   "wrong guest area specification (separator between start and end boundaries): %s", v);
+					   "wrong guest area specification (separator between start and end boundaries): %s", vdup);
 				goto err;
 			}
 			tmp++;
 		}
 		else if (i == 1 && (*tmp != '\0'))
 		{
-			error (WARNING, "wrong guest area specification (garbage at the end of end boundary spec): %s", v);
+			error (WARNING, "wrong guest area specification (garbage at the end of end boundary spec): %s", vdup);
 			goto err;
 		}
 	}
-	return;
+	goto cleanup;
  err:
 	guest->lang.type = GUEST_LANG_UNKNOWN;
+ cleanup:
+	eFree (vdup);
 }
 
 static flagDefinition multilinePtrnFlagDef[] = {
@@ -1121,7 +1127,7 @@ static void common_flag_field_long (const char* const s, const char* const v, vo
 	fieldType ftype;
 	char *fname;
 	const char* template;
-	char *tmp;
+	const char *tmp;
 
 	if (!v)
 	{
@@ -1316,7 +1322,7 @@ static void pre_ptrn_flag_mtable_long (const char* const s, const char* const v,
 	if (taking_table)
 	{
 		int t;
-		char *continuation = NULL;
+		const char *continuation = NULL;
 
 
 		if (!v || (!*v))

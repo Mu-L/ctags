@@ -3409,7 +3409,7 @@ op__strpbrk (OptVM *vm, EsObject *name)
 	vString *acceptv = es_pointer_get (acceptobj);
 
 	const char *str = vStringValue (strv);
-	char *p = strpbrk (str, vStringValue (acceptv));
+	const char *p = strpbrk (str, vStringValue (acceptv));
 	if (p)
 	{
 		int d = p - str;

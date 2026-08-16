@@ -116,7 +116,7 @@ static void parseArglist (const char *buf, vString *arglist, vString *vartype)
 	/* parse return type if requested by passing a non-NULL vartype argument */
 	if (NULL != vartype)
 	{
-		char *var, *var_start;
+		const char *var, *var_start;
 
 		if (NULL != (var = strchr (end, ':')))
 		{
