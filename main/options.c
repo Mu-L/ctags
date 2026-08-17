@@ -4063,6 +4063,8 @@ extern void initOptions (void)
 	OptionFiles = stringListNew ();
 	OptlibPathList = optlibPathListNew (preload_path_list);
 
+	const char *defaultEx = "default exclude";
+
 	verbose ("Setting option defaults\n");
 	installHeaderListDefaults ();
 	verbose ("  Installing default language mappings:\n");
@@ -4072,32 +4074,32 @@ extern void initOptions (void)
 
 	/* always excluded by default */
 	verbose ("  Installing default exclude patterns:\n");
-	processExcludeOption (NULL, "{arch}");
-	processExcludeOption (NULL, ".arch-ids");
-	processExcludeOption (NULL, ".arch-inventory");
-	processExcludeOption (NULL, "autom4te.cache");
-	processExcludeOption (NULL, "BitKeeper");
-	processExcludeOption (NULL, ".bzr");
-	processExcludeOption (NULL, ".bzrignore");
-	processExcludeOption (NULL, "CVS");
-	processExcludeOption (NULL, ".cvsignore");
-	processExcludeOption (NULL, "_darcs");
-	processExcludeOption (NULL, ".deps");
-	processExcludeOption (NULL, ".dvi");
-	processExcludeOption (NULL, ".DS_Store");
-	processExcludeOption (NULL, "EIFGEN");
-	processExcludeOption (NULL, ".git");
-	processExcludeOption (NULL, ".gitignore");
-	processExcludeOption (NULL, ".gitattributes");
-	processExcludeOption (NULL, ".hg");
-	processExcludeOption (NULL, ".hgignore");
-	processExcludeOption (NULL, "PENDING");
-	processExcludeOption (NULL, "RCS");
-	processExcludeOption (NULL, "RESYNC");
-	processExcludeOption (NULL, "SCCS");
-	processExcludeOption (NULL, ".svn");
-	processExcludeOption (NULL, "*~");
-	processExcludeOption (NULL, ".*.swp");
+	processExcludeOption (defaultEx, "{arch}");
+	processExcludeOption (defaultEx, ".arch-ids");
+	processExcludeOption (defaultEx, ".arch-inventory");
+	processExcludeOption (defaultEx, "autom4te.cache");
+	processExcludeOption (defaultEx, "BitKeeper");
+	processExcludeOption (defaultEx, ".bzr");
+	processExcludeOption (defaultEx, ".bzrignore");
+	processExcludeOption (defaultEx, "CVS");
+	processExcludeOption (defaultEx, ".cvsignore");
+	processExcludeOption (defaultEx, "_darcs");
+	processExcludeOption (defaultEx, ".deps");
+	processExcludeOption (defaultEx, ".dvi");
+	processExcludeOption (defaultEx, ".DS_Store");
+	processExcludeOption (defaultEx, "EIFGEN");
+	processExcludeOption (defaultEx, ".git");
+	processExcludeOption (defaultEx, ".gitignore");
+	processExcludeOption (defaultEx, ".gitattributes");
+	processExcludeOption (defaultEx, ".hg");
+	processExcludeOption (defaultEx, ".hgignore");
+	processExcludeOption (defaultEx, "PENDING");
+	processExcludeOption (defaultEx, "RCS");
+	processExcludeOption (defaultEx, "RESYNC");
+	processExcludeOption (defaultEx, "SCCS");
+	processExcludeOption (defaultEx, ".svn");
+	processExcludeOption (defaultEx, "*~");
+	processExcludeOption (defaultEx, ".*.swp");
 
 	/* Exclude binary files
 	 * -----------------------------------------------
@@ -4117,22 +4119,22 @@ extern void initOptions (void)
 	 * https://bitbucket.org/haypo/hachoir3 can be
 	 * used the alternative for /bin/nm
 	 */
-	processExcludeOption (NULL, "*.o");
-	processExcludeOption (NULL, "*.a");
-	processExcludeOption (NULL, "*.so");
+	processExcludeOption (defaultEx, "*.o");
+	processExcludeOption (defaultEx, "*.a");
+	processExcludeOption (defaultEx, "*.so");
 
-	processExcludeOption (NULL, "*.obj");
-	processExcludeOption (NULL, "*.lib");
-	processExcludeOption (NULL, "*.dll");
-	processExcludeOption (NULL, "*.exe");
+	processExcludeOption (defaultEx, "*.obj");
+	processExcludeOption (defaultEx, "*.lib");
+	processExcludeOption (defaultEx, "*.dll");
+	processExcludeOption (defaultEx, "*.exe");
 
-	processExcludeOption (NULL, "*.gcno");
-	processExcludeOption (NULL, "*.gcda");
+	processExcludeOption (defaultEx, "*.gcno");
+	processExcludeOption (defaultEx, "*.gcda");
 
-	processExcludeOption (NULL, "*.class");
+	processExcludeOption (defaultEx, "*.class");
 
-	processExcludeOption (NULL, "*.pyc");
-	processExcludeOption (NULL, "*.pyo");
+	processExcludeOption (defaultEx, "*.pyc");
+	processExcludeOption (defaultEx, "*.pyo");
 }
 
 extern void freeOptionResources (void)
